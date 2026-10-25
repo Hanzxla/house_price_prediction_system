@@ -8,7 +8,8 @@ import streamlit as st
 st.set_page_config(
     page_title="HomeValue | House Price Predictor",
     page_icon="🏡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -17,59 +18,84 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 @st.cache_resource
 def load_artifacts():
     model = joblib.load(os.path.join(BASE_DIR, "random_forest.pkl"))
-    features = joblib.load(os.path.join(BASE_DIR, "features.pkl"))
-    return model, features
+    saved_features = joblib.load(os.path.join(BASE_DIR, "features.pkl"))
+
+    # Your original training code excluded these two columns
+    # before fitting the Random Forest.
+    model_features = [
+        f for f in saved_features
+        if f not in ["street", "country"]
+    ]
+
+    return model, model_features
 
 
 try:
     model, features = load_artifacts()
 except Exception as e:
-    st.error(f"Could not load model files: {e}")
+    st.error(f"Could not load the model files: {e}")
     st.stop()
 
 # ---------------- STYLING ----------------
 st.markdown("""
 <style>
-.block-container {
-    padding-top: 2rem;
-    max-width: 1200px;
-}
-.hero {
-    padding: 28px;
-    border-radius: 18px;
-    background: linear-gradient(120deg, #173b67, #277da1);
-    color: white;
-    margin-bottom: 25px;
-}
-.hero h1 {
-    color: white;
-    font-size: 2.3rem;
-}
-.hero p {
-    color: #e5f2ff;
-    font-size: 1rem;
-}
-div.stButton > button,
-div.stFormSubmitButton > button {
-    border-radius: 10px;
-    font-weight: 600;
-}
-.result-card {
-    background: #effaf3;
-    color: #164b2c;
-    padding: 25px;
-    border-radius: 16px;
-    border: 1px solid #b7dfc6;
-    text-align: center;
-}
-.result-label {
-    font-size: 1.05rem;
-}
-.result-price {
-    font-size: 2.3rem;
-    font-weight: 750;
-    overflow-wrap: anywhere;
-}
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+        max-width: 1200px;
+    }
+
+    .hero {
+        padding: 1.8rem;
+        border-radius: 18px;
+        background: linear-gradient(120deg, #173b67, #277da1);
+        color: white;
+        margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+        color: white;
+        margin-bottom: 0.4rem;
+        font-size: 2.2rem;
+    }
+
+    .hero p {
+        color: #e5f2ff;
+        margin-bottom: 0;
+        font-size: 1rem;
+    }
+
+    .section-title {
+        font-size: 1.15rem;
+        font-weight: 650;
+        margin-top: 0.8rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .result-card {
+        padding: 1.5rem;
+        border-radius: 16px;
+        border: 1px solid #b7dfc6;
+        background: #f0faf4;
+        color: #164b2c;
+        text-align: center;
+    }
+
+    .result-label {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .result-price {
+        font-size: 2.3rem;
+        font-weight: 750;
+        overflow-wrap: anywhere;
+    }
+
+    .small-note {
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -77,91 +103,120 @@ div.stFormSubmitButton > button {
 st.markdown("""
 <div class="hero">
     <h1>🏡 HomeValue</h1>
-    <p>Smart House Price Prediction System</p>
-    <p>Enter your property details to estimate its price.</p>
+    <p>Smart House Price Prediction · Enter your property details
+    to estimate its value.</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Illustrative exchange rate; update as needed.
+# Illustrative conversion only; update when needed.
 USD_TO_INR = 95.0
 
 with st.sidebar:
     st.title("🏡 HomeValue")
     st.caption("House Price Prediction System")
     st.divider()
-    st.subheader("How it works")
-    st.write("1. Enter property details.")
+
+    st.markdown("### How it works")
+    st.write("1. Enter the house details.")
     st.write("2. Click Predict House Price.")
-    st.write("3. View the estimated price.")
+    st.write("3. View the estimated price in INR.")
+
     st.divider()
-    st.caption("The model uses US housing data.")
-    st.caption("INR is a currency conversion, not an Indian-market valuation.")
+    st.caption("Model trained on US housing data.")
+    st.caption("The INR amount is a currency conversion, not an Indian-market valuation.")
 
 # ---------------- INPUT FORM ----------------
 st.subheader("🏠 Property Details")
-st.write("Complete the sections below.")
+st.write("Fill in the details below to get your estimate.")
 
 with st.form("house_prediction_form"):
 
-    st.markdown("### 🛏️ Rooms & Layout")
+    st.markdown(
+        '<div class="section-title">🛏️ Rooms & Layout</div>',
+        unsafe_allow_html=True
+    )
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
         bedrooms = st.number_input(
-            "Bedrooms (BHK)",
-            min_value=1, max_value=10,
-            value=3, step=1
+            "Bedrooms",
+            min_value=1,
+            max_value=10,
+            value=3,
+            step=1
         )
 
     with col2:
         bathrooms = st.number_input(
             "Bathrooms",
-            min_value=1, max_value=8,
-            value=2, step=1
+            min_value=1,
+            max_value=8,
+            value=2,
+            step=1
         )
 
     with col3:
         floors = st.selectbox(
             "Number of Floors",
-            options=[1, 2, 3]
+            options=[1, 2, 3],
+            index=0
         )
 
     st.divider()
-    st.markdown("### 📐 Property Size")
+
+    st.markdown(
+        '<div class="section-title">📐 Property Size</div>',
+        unsafe_allow_html=True
+    )
+
     col1, col2 = st.columns(2)
 
     with col1:
         sqft_living = st.number_input(
             "Living Area (sq ft)",
-            min_value=370, max_value=13540,
-            value=2000, step=50
+            min_value=370,
+            max_value=13540,
+            value=2000,
+            step=50
         )
 
         sqft_above = st.number_input(
             "Area Above Ground (sq ft)",
-            min_value=0, max_value=10000,
-            value=1500, step=50
+            min_value=0,
+            max_value=10000,
+            value=1500,
+            step=50
         )
 
     with col2:
         sqft_lot = st.number_input(
             "Total Lot Size (sq ft)",
-            min_value=638, max_value=1074218,
-            value=5000, step=100
+            min_value=638,
+            max_value=1074218,
+            value=5000,
+            step=100
         )
 
         sqft_basement = st.number_input(
             "Basement Area (sq ft)",
-            min_value=0, max_value=4820,
-            value=0, step=50
+            min_value=0,
+            max_value=4820,
+            value=0,
+            step=50
         )
 
     st.divider()
-    st.markdown("### ✨ Quality & Features")
+
+    st.markdown(
+        '<div class="section-title">✨ Quality & Features</div>',
+        unsafe_allow_html=True
+    )
+
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        condition_options = {
+        condition_labels = {
             "Poor": 1,
             "Fair": 2,
             "Average": 3,
@@ -171,39 +226,51 @@ with st.form("house_prediction_form"):
 
         selected_condition = st.selectbox(
             "House Condition",
-            options=list(condition_options.keys()),
-            index=2
+            options=list(condition_labels.keys()),
+            index=2,
+            help="Choose the overall physical condition of the house."
         )
 
     with col2:
         view = st.select_slider(
             "View Quality",
             options=[0, 1, 2, 3, 4],
-            value=0
+            value=0,
+            help="0 = No notable view, 4 = Best view rating"
         )
 
     with col3:
-        waterfront = st.selectbox(
+        waterfront_label = st.selectbox(
             "Waterfront Property",
-            options=["No", "Yes"]
+            options=["No", "Yes"],
+            index=0
         )
 
     st.divider()
-    st.markdown("### 📅 Property Age")
+
+    st.markdown(
+        '<div class="section-title">📅 Property Age</div>',
+        unsafe_allow_html=True
+    )
+
     col1, col2 = st.columns(2)
 
     with col1:
         yr_built = st.number_input(
             "Year Built",
-            min_value=1900, max_value=2014,
-            value=2000, step=1
+            min_value=1900,
+            max_value=2014,
+            value=2000,
+            step=1
         )
 
     with col2:
         yr_renovated = st.number_input(
             "Year Renovated (0 = Never)",
-            min_value=0, max_value=2014,
-            value=0, step=1
+            min_value=0,
+            max_value=2014,
+            value=0,
+            step=1
         )
 
     submitted = st.form_submit_button(
@@ -221,9 +288,9 @@ if submitted:
         "sqft_living": sqft_living,
         "sqft_lot": sqft_lot,
         "floors": floors,
-        "waterfront": 1 if waterfront == "Yes" else 0,
+        "waterfront": 1 if waterfront_label == "Yes" else 0,
         "view": view,
-        "condition": condition_options[selected_condition],
+        "condition": condition_labels[selected_condition],
         "sqft_above": sqft_above,
         "sqft_basement": sqft_basement,
         "yr_built": yr_built,
@@ -232,21 +299,22 @@ if submitted:
         "renovated": 1 if yr_renovated > 0 else 0
     }
 
-    # Location features are currently not selected by the user.
-    # They remain zero until city/ZIP selectors are added.
+    # Create dummy columns for all locations.
+    # No location is selected in this interface, so all remain zero.
     for feature in features:
         if feature.startswith("city_") or feature.startswith("statezip_"):
             input_data[feature] = 0
 
+    # Match the exact feature order expected by the model.
     df = pd.DataFrame([input_data])
     df = df.reindex(columns=features, fill_value=0)
 
-    # Check feature compatibility instead of dropping columns.
+    # Never silently remove model features.
     if df.shape[1] != model.n_features_in_:
         st.error(
             f"Model expects {model.n_features_in_} features, "
             f"but the app prepared {df.shape[1]}. "
-            "Retrain the model and replace model and feature files together."
+            "Please check your saved model and features.pkl."
         )
         st.stop()
 
@@ -257,37 +325,27 @@ if submitted:
             st.error("The model returned an invalid prediction.")
             st.stop()
 
-        # Convert USD to INR.
         prediction_inr = prediction_usd * USD_TO_INR
 
-        # Format automatically in lakhs or crores.
-        if prediction_inr >= 1_00_00_000:
-            formatted_price = (
-                f"₹{prediction_inr / 1_00_00_000:.2f} crore"
-            )
-        else:
-            formatted_price = (
-                f"₹{prediction_inr / 1_00_000:.2f} lakh"
-            )
-
-        st.divider()
+        st.markdown("---")
         st.subheader("📊 Your Prediction")
 
         st.markdown(f"""
         <div class="result-card">
             <div class="result-label">Estimated House Price</div>
-            <div class="result-price">{formatted_price}</div>
-            <p>Approx. ${prediction_usd:,.0f} USD before conversion</p>
+            <div class="result-price">₹{prediction_inr:,.0f}</div>
+            <div class="small-note">
+                Approx. ${prediction_usd:,.0f} USD before conversion
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
         st.caption(
-            f"Illustrative conversion rate: $1 = ₹{USD_TO_INR:.2f}. "
-            "Actual exchange rates vary. The model uses US housing data, "
-            "so this is not an Indian-market property valuation."
+            f"Illustrative conversion: $1 = ₹{USD_TO_INR:.2f}. "
+            "The actual exchange rate may differ."
         )
 
-        with st.expander("View entered features"):
+        with st.expander("View entered property details"):
             st.dataframe(
                 pd.DataFrame(
                     list(input_data.items()),
@@ -300,8 +358,8 @@ if submitted:
     except Exception as e:
         st.error(f"Prediction failed: {e}")
 
-st.divider()
+st.markdown("---")
 st.caption(
-    "HomeValue | Machine Learning Project | "
-    "Predictions are estimates, not formal property valuations."
+    "HomeValue · Machine Learning Project · "
+    "Estimates are model outputs and should not be treated as formal valuations."
 )
